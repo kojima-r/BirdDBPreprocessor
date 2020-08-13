@@ -2,6 +2,7 @@ from sklearn.manifold import TSNE
 from sklearn.preprocessing import normalize
 from sklearn.decomposition import PCA
 import umap
+import trimap
 
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import cross_val_predict
@@ -15,7 +16,7 @@ import numpy as np
 import click
 import os
 
-def make_window(X,Y,S,window,limit_length):
+def make_sliding_window(X,Y,S,window,limit_length):
     out_x=[]
     out_y=[]
     for i in range(X.shape[0]):
@@ -33,6 +34,13 @@ def make_window(X,Y,S,window,limit_length):
     out_x=np.concatenate(out_x,axis=0)
     out_y=np.array(out_y)
     return out_x,out_y
+
+def plot_scatter(embedding,Y,filename,title):
+    plt.scatter(embedding[:,0],embedding[:,1],c=Y,cmap=cm.gist_rainbow,alpha=0.3,marker=".")
+    plt.colorbar()
+    plt.title(title)
+    plt.savefig(filename)
+
 @click.command()
 @click.option('--input_path', default='./data3')
 @click.option('--resample', type=int, default=None)
@@ -43,19 +51,17 @@ def make_window(X,Y,S,window,limit_length):
 def plot(input_path, resample, output_path, feature,method,limit_length):
     x=np.load(input_path+"/data_x."+feature+".npy")
     y=np.load(input_path+"/data_y."+feature+".npy")
-    print("X (input):",x.shape)
+    print("X (input file):",x.shape)
+
     ###
     if len(x.shape)==3:
+        print("... generating sliding window")
         s=np.load(input_path+"/data_s."+feature+".npy")
-        print("... window")
-        x,y=make_window(x,y,s,window=10,limit_length=limit_length)
-        print("sample:",x.shape)
-        #x=x[:,10:110,:]
-        #n=x.shape[0]
-        #x=x.reshape((n,-1))
-    ### umap
-    print("... embedding")
+        x,y=make_sliding_window(x,y,s,window=10,limit_length=limit_length)
+        print("X (sliding window):",x.shape)
+
     if resample is not None:
+        print("... resampling")
         idx=list(range(x.shape[0]))
         np.random.shuffle(idx)
         idx=idx[:resample]
@@ -64,7 +70,8 @@ def plot(input_path, resample, output_path, feature,method,limit_length):
     else:
         X=x
         Y=y
-    print("... preprocess: normalize/PCA")
+    
+    print("... preprocess: normalization and PCA")
     preprocess_start_time = time.time()
     X=normalize(X)
     if X.shape[1]>20:
@@ -72,12 +79,20 @@ def plot(input_path, resample, output_path, feature,method,limit_length):
         X=prep_model.fit_transform(X)
     preprocess_interval = time.time() - preprocess_start_time
 
+    ##
+    """
+    print(... saving prepprocessed data)
+    filename_x=output_path+"/"+feature+"_x.npy"
+    filename_y=output_path+"/"+feature+"_y.npy"
+    np.save(filename_x,X)
+    np.save(filename_y,Y)
+    """
+    ##
     print("... embedding")
     embedding_start_time = time.time()
     if method=="tsne":
         model = TSNE(n_components=2, random_state=42)
     elif method=="trimap":
-        import trimap
         model = trimap.TRIMAP(n_iters=500)
     else:
         model = umap.UMAP()
@@ -88,10 +103,10 @@ def plot(input_path, resample, output_path, feature,method,limit_length):
     os.makedirs(output_path,exist_ok=True)
     np.save(output_path+"/"+method+"."+feature+".npy",embedding)
     print(method,"time:",embedding_interval)
-    plt.scatter(embedding[:,0],embedding[:,1],c=Y,cmap=cm.gist_rainbow,alpha=0.3,marker=".")
-    plt.colorbar()
-    plt.title(method)
-    plt.savefig(output_path+"/"+method+"."+feature+".png")
+    
+    title=method
+    filename=output_path+"/"+method+"."+feature+".png"
+    plot_scatter(embedding,Y,filename,title)
     
     print("... evaluation")
     classifier=KNeighborsClassifier(n_neighbors=10)
