@@ -23,7 +23,6 @@ def get_feature(filename,feature):
             return logS
         elif feature=="mel2":
             S = librosa.feature.melspectrogram(y, sr=sr, n_mels=128)
-            print(S.shape)
             logS = librosa.amplitude_to_db(S, ref=np.max)
             logS_delta = librosa.feature.delta(logS)
             logS_deltadelta = librosa.feature.delta(logS)
@@ -40,17 +39,22 @@ def get_feature(filename,feature):
         return None
 
 def process(args):
-    filename,y,i=args
-    x=get_feature(filename,"mel")
+    filename,y,i,f=args
+    if f=="":
+        x=get_feature(filename,"mel")
+    else:
+        x=get_feature(filename,f)
     return (x,y,i)
 
 
 
 @click.command()
 @click.option('--input_df',     default='song_df2.pkl')
-@click.option('--output_path',   default='./data3')
-@click.option('--output_ex_path',   default='./data4')
-def make_dataset(input_df,output_path,output_ex_path):
+#@click.option('--output_path',   default='./data3')
+@click.option('--output_path',   default=None)
+@click.option('--output_ex_path',   default='./data_seq3')
+@click.option('--feature',   default="mel")
+def make_dataset(input_df,output_path,output_ex_path,feature):
     with open(input_df, 'rb') as fp:
         song_df=pickle.load(fp)
     all_data=[]
@@ -58,7 +62,7 @@ def make_dataset(input_df,output_path,output_ex_path):
         filename=row["SepWaveFileName"]
         y=int(row["y"])
         if y>=0:
-            all_data.append((filename,y,i))
+            all_data.append((filename,y,i,feature))
 
       
     p = Pool(128)
@@ -77,57 +81,60 @@ def make_dataset(input_df,output_path,output_ex_path):
 
     ### output ###
     print("=== output ===")
-    os.makedirs(output_path,exist_ok=True)
+    if output_path is not None:
+        os.makedirs(output_path,exist_ok=True)
 
-    label=[]
-    idx=[]
-    for (x,y,i) in zip(all_data_x,all_data_y,all_data_idx):
-          label.append([y]*x.shape[1])
-          idx.append([i]*x.shape[1])
-    
-    out_x=np.concatenate(all_data_x,axis=1)
-    out_x=np.transpose(out_x)
-    out_y=np.concatenate(label)
-    out_idx=np.concatenate(idx)
-    
-    np.save(output_path + "/data_x.npy",out_x)
-    np.save(output_path + "/data_y.npy",out_y)
-    np.save(output_path + "/data_wav_index.npy",out_idx)
-    print("x:",out_x.shape)
-    print("y:",out_y.shape)
-    print("index:",out_idx.shape)
-    ### 
+        label=[]
+        idx=[]
+        for (x,y,i) in zip(all_data_x,all_data_y,all_data_idx):
+              label.append([y]*x.shape[1])
+              idx.append([i]*x.shape[1])
+        
+        out_x=np.concatenate(all_data_x,axis=1)
+        out_x=np.transpose(out_x)
+        out_y=np.concatenate(label)
+        out_idx=np.concatenate(idx)
+        
+        np.save(output_path + "/data_x."+feature+".npy",out_x)
+        np.save(output_path + "/data_y."+feature+".npy",out_y)
+        np.save(output_path + "/data_wav_index."+feature+".npy",out_idx)
+        
+        print("x:",out_x.shape)
+        print("y:",out_y.shape)
+        print("index:",out_idx.shape)
+        ### 
     
     ### output ###
-    print("=== output (sequence) ===")
-    os.makedirs(output_ex_path,exist_ok=True)
+    if output_ex_path is not None:
+        print("=== output (sequence) ===")
+        os.makedirs(output_ex_path,exist_ok=True)
 
-    steps=[x.shape[1] for x in all_data_x]
-    max_step = max(steps)
-    fs=[x.shape[0] for x in all_data_x]
-    max_fs = max(fs)
-    print("#sample :",len(all_data_x))
-    print("max step:",max_step)
-    print("feature :",max_fs)
-    out_seq_x=np.zeros((len(all_data_x),max_step,max_fs))
-    steps=[]
-    for i,x in enumerate(all_data_x):
-        s=x.shape[1]
-        steps.append(s)
-        out_seq_x[i,:s,:]=np.transpose(x)
-    
-    out_seq_s=np.array(steps)
-    out_seq_y=np.array(all_data_y)
-    out_seq_idx=np.array(all_data_idx)
-    
-    np.save(output_ex_path + "/data_x.npy",out_seq_x)
-    np.save(output_ex_path + "/data_s.npy",out_seq_s)
-    np.save(output_ex_path + "/data_y.npy",out_seq_y)
-    np.save(output_ex_path + "/data_wav_index.npy",out_seq_idx)
-    print("x:",out_seq_x.shape)
-    print("s:",out_seq_s.shape)
-    print("y:",out_seq_y.shape)
-    print("index:",out_seq_idx.shape)
+        steps=[x.shape[1] for x in all_data_x]
+        max_step = max(steps)
+        fs=[x.shape[0] for x in all_data_x]
+        max_fs = max(fs)
+        print("#sample :",len(all_data_x))
+        print("max step:",max_step)
+        print("feature :",max_fs)
+        out_seq_x=np.zeros((len(all_data_x),max_step,max_fs))
+        steps=[]
+        for i,x in enumerate(all_data_x):
+            s=x.shape[1]
+            steps.append(s)
+            out_seq_x[i,:s,:]=np.transpose(x)
+        
+        out_seq_s=np.array(steps)
+        out_seq_y=np.array(all_data_y)
+        out_seq_idx=np.array(all_data_idx)
+        
+        np.save(output_ex_path + "/data_x."+feature+".npy",out_seq_x)
+        np.save(output_ex_path + "/data_s."+feature+".npy",out_seq_s)
+        np.save(output_ex_path + "/data_y."+feature+".npy",out_seq_y)
+        np.save(output_ex_path + "/data_wav_index."+feature+".npy",out_seq_idx)
+        print("x:",out_seq_x.shape)
+        print("s:",out_seq_s.shape)
+        print("y:",out_seq_y.shape)
+        print("index:",out_seq_idx.shape)
     ### 
 
 
