@@ -16,7 +16,7 @@ for path in glob.glob("./data2/*.wav"):
         dest_dir="data2_n{:02d}".format(k)
         noise_ratio=0.1*k
         #subprocess.run(["micarrayx-add-noise",path,dest_dir+"/"+name, "-N", str(noise_ratio)])
-        cmd_list.append(["micarrayx-add-noise",path,dest_dir+"/"+name, "-N","{:.2f}".format(noise_ratio)])
+        cmd_list.append(["mic",path,dest_dir+"/"+name, "-N","{:.2f}".format(noise_ratio)])
 def process(cmd):
     print(cmd)
     subprocess.run(cmd)

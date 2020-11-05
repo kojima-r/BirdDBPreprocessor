@@ -7,19 +7,42 @@ import librosa
 import numpy as np
 from multiprocessing import Pool
 import click
-
+from PIL import Image
+with_loc_feature=False
 def get_feature(filename,feature):
     try:
+        print(filename)
+        name,_ = os.path.splitext(filename)
+        npy_path=name+".npy"
+        feat=None
+        if with_loc_feature and os.path.exists(npy_path):
+            ## 10msec 16k
+            feat=np.load(npy_path)
+            feat=feat.transpose()
+            #print("feat",feat.shape)
         y, sr = librosa.load(filename)
+        #print("y;",y.shape)
         if feature=="mfcc":
             mfcc_feature = librosa.feature.mfcc(y=y,sr=sr,n_mfcc=13)
             mfcc_delta = librosa.feature.delta(mfcc_feature)
             mfcc_deltadelta = librosa.feature.delta(mfcc_delta)
             f=np.vstack([mfcc_feature, mfcc_delta,mfcc_deltadelta])
+            if feat is not None:
+                im = Image.fromarray(feat)
+                z=im.resize((f.shape[1],feat.shape[0]))
+                feat=np.asarray(z)
+                f=np.concatenate([feat,f],axis=0)
+                return f
             return f
         elif feature=="mel":
             S = librosa.feature.melspectrogram(y, sr=sr, n_mels=128)
             logS = librosa.amplitude_to_db(S, ref=np.max)
+            if feat is not None:
+                im = Image.fromarray(feat)
+                z=im.resize((f.shape[1],feat.shape[0]))
+                feat=np.asarray(z)
+                f=np.concatenate([feat,f],axis=0)
+                return f
             return logS
         elif feature=="mel2":
             S = librosa.feature.melspectrogram(y, sr=sr, n_mels=128)
@@ -27,12 +50,28 @@ def get_feature(filename,feature):
             logS_delta = librosa.feature.delta(logS)
             logS_deltadelta = librosa.feature.delta(logS)
             f=np.vstack([logS, logS_delta, logS_deltadelta])
+            if feat is not None:
+                #print("feat",feat.shape)
+                im = Image.fromarray(feat)
+                z=im.resize((f.shape[1],feat.shape[0]))
+                feat=np.asarray(z)
+                #print("feat",feat.shape)
+                f=np.concatenate([feat,f],axis=0)
+                #print("mel",f.shape)
+                return f
+            #print("mel",f.shape)
             return f
         elif feature=="spec":
             # win_length =n_fft
             # hop_length=win_length / 4
             D = librosa.stft(y,n_fft=1024,hop_length=None, win_length=None)
             log_power = librosa.amplitude_to_db(np.abs(D), ref=np.max)
+            if feat is not None:
+                im = Image.fromarray(feat)
+                z=im.resize((f.shape[1],feat.shape[0]))
+                feat=np.asarray(z)
+                f=np.concatenate([feat,f],axis=0)
+                return f
             return log_power
     except:
         print("[ERROR]",filename)
@@ -54,7 +93,8 @@ def process(args):
 @click.option('--output_path',   default=None)
 @click.option('--output_ex_path',   default='./data_seq3')
 @click.option('--feature',   default="mel")
-def make_dataset(input_df,output_path,output_ex_path,feature):
+@click.option('--limit_length', type=int, default=None)
+def make_dataset(input_df,output_path,output_ex_path,feature,limit_length):
     with open(input_df, 'rb') as fp:
         song_df=pickle.load(fp)
     all_data=[]
@@ -65,7 +105,7 @@ def make_dataset(input_df,output_path,output_ex_path,feature):
             all_data.append((filename,y,i,feature))
 
       
-    p = Pool(128)
+    p = Pool(38)
     results=p.map(process, all_data)
     p.close()
 
@@ -77,7 +117,7 @@ def make_dataset(input_df,output_path,output_ex_path,feature):
         if x is not None:
             all_data_x.append(x)
             all_data_y.append(y)
-            all_data_idx.append(i)
+            all_data_idx.append(idx)
 
     ### output ###
     print("=== output ===")
@@ -116,12 +156,16 @@ def make_dataset(input_df,output_path,output_ex_path,feature):
         print("#sample :",len(all_data_x))
         print("max step:",max_step)
         print("feature :",max_fs)
+        if limit_length is not None and limit_length<max_step:
+            max_step=limit_length
         out_seq_x=np.zeros((len(all_data_x),max_step,max_fs))
         steps=[]
         for i,x in enumerate(all_data_x):
             s=x.shape[1]
+            if limit_length is not None and limit_length<s:
+                s=limit_length
             steps.append(s)
-            out_seq_x[i,:s,:]=np.transpose(x)
+            out_seq_x[i,:s,:]=np.transpose(x)[:s,:]
         
         out_seq_s=np.array(steps)
         out_seq_y=np.array(all_data_y)

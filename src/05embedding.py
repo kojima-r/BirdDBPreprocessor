@@ -48,7 +48,9 @@ def plot_scatter(embedding,Y,filename,title):
 @click.option('--feature', default='mel')
 @click.option('--method', default='umap')
 @click.option('--limit_length', type=int, default=None)
-def plot(input_path, resample, output_path, feature,method,limit_length):
+@click.option('--n_max_epoch', type=int, default=30)
+@click.option('--b', type=float, default=0.895)
+def plot(input_path, resample, output_path, feature,method,limit_length,n_max_epoch,b):
     x=np.load(input_path+"/data_x."+feature+".npy")
     y=np.load(input_path+"/data_y."+feature+".npy")
     print("X (input file):",x.shape)
@@ -81,7 +83,7 @@ def plot(input_path, resample, output_path, feature,method,limit_length):
 
     ##
     """
-    print(... saving prepprocessed data)
+    print("... saving prepprocessed data")
     filename_x=output_path+"/"+feature+"_x.npy"
     filename_y=output_path+"/"+feature+"_y.npy"
     np.save(filename_x,X)
@@ -90,13 +92,19 @@ def plot(input_path, resample, output_path, feature,method,limit_length):
     ##
     print("... embedding")
     embedding_start_time = time.time()
-    if method=="tsne":
-        model = TSNE(n_components=2, random_state=42)
-    elif method=="trimap":
-        model = trimap.TRIMAP(n_iters=500)
+    if method=="song":
+        import song
+        model = song.song_.SONG(n_max_epoch=n_max_epoch,b=b)
+        model.fit(X, Y)
+        embedding=model.raw_embeddings[:,:]
     else:
-        model = umap.UMAP()
-    embedding = model.fit_transform(X)
+        if method=="tsne":
+            model = TSNE(n_components=2, random_state=42)
+        elif method=="trimap":
+            model = trimap.TRIMAP(n_iters=500)
+        else:
+            model = umap.UMAP()
+        embedding = model.fit_transform(X)
     embedding_interval = time.time() - embedding_start_time
 
     print("... plotting embedded points")
