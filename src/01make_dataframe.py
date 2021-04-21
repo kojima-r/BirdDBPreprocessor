@@ -15,7 +15,7 @@ import click
 @click.command()
 @click.option('--input_path', '-p', default='./data_clean/data')
 @click.option('--output', '-o', default='song_df.pkl')
-def make_dataframe(input_path):
+def make_dataframe(input_path,output):
     bird_species = glob.glob(input_path+'/*')
 
     dataset_sizes = {}

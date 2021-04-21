@@ -5,7 +5,8 @@ import wave
 from scipy.io import wavfile
 import pickle
 import pandas as pd
-from sklearn.externals.joblib import Parallel, delayed
+#from sklearn.externals.joblib import Parallel, delayed
+from joblib import Parallel, delayed
 from tqdm.autonotebook import tqdm
 from datetime import datetime, timedelta
 import os

@@ -15,7 +15,8 @@ os.makedirs(bird_db_loc,exist_ok=True)
 
 
 from urllib.error import HTTPError
-from sklearn.externals.joblib import Parallel, delayed
+#from sklearn.externals.joblib import Parallel, delayed
+from joblib import Parallel, delayed
 from tqdm.autonotebook import tqdm
 from datetime import datetime, timedelta
 import urllib.request

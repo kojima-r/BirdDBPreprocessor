@@ -3,14 +3,15 @@
 ## 01-03 download wav and annotation files from BirdDB ##
 #########################################################
 
-python src/00download.py
+python src/00download_data.py
+python src/00convert.py
 
 ############################
 ## 01-03 data preparation ##
 ############################
 
 python src/01make_dataframe.py \
-	--input_path  ./data/ \
+	--input_path  ./data_clean/ \
 	--output      ./song_df.pkl 
 
 python src/02sep_wav.py \
