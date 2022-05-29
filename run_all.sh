@@ -11,7 +11,7 @@ python src/00convert.py
 ############################
 
 python src/01make_dataframe.py \
-	--input_path  ./data_clean/ \
+	--input_path  ./data_clean/data \
 	--output      ./song_df.pkl 
 
 python src/02sep_wav.py \
